@@ -1,0 +1,88 @@
+addpath("CAS_TEST","FONCTIONS")
+Cas_test_1;
+
+for k = 1:n_e
+    % Noeuds de début et de fin
+    i = B(k,1);
+    j = B(k,2);
+
+    % Coordonnées
+    x_i = N(i,1);
+    y_i = N(i,2);
+    x_j = N(j,1);
+    y_j = N(j,2);
+
+    % Différences
+    x = x_j - x_i;
+    y = y_j - y_i;
+
+    % Longueur et inclinaison
+    L(k) = sqrt(x^2 + y^2);
+    alpha(k) = atan2(y, x); % angle dans [-pi, pi]
+
+end
+
+
+K = zeros(3*n,3*n)
+
+for e = 1:n_e
+    % Noeuds de début et de fin
+    i = B(e,1);
+    j = B(e,2);
+    indice = [(3*i-2):(3*i), (3*j-2):(3*j)];
+
+    ke = f_rigidite(E(e),A(e),I(e),L(e));
+    M = f_passage(alpha(e));
+    Ke = M'*ke*M;
+    K(indice,indice) = K(indice,indice) + Ke
+
+end
+
+
+
+%Calcul 
+% --- Entrées attendues ---
+% K      : matrice de raideur globale (3n x 3n)
+% Fimp   : vecteur des forces imposées (3n x 1)
+% Uimp   : vecteur des déplacements imposés (3n x 1). Valeur 0 si non imposé.
+% DDL    : vecteur indicateur (3n x 1) : 1 = libre, 0 = bloqué
+
+% Exemples: (déjà dans ton cas test)
+% load ou définir K, Fimp, Uimp, DDL avant d'exécuter ce bloc
+
+% --- indices libres et bloqués ---
+indicesL = find(DDL == 1);   % indices des DDL libres (L)
+indicesB = find(DDL == 0);   % indices des DDL bloqués (B)
+
+% --- extraire les blocs de K ---
+K_LL = K(indicesL, indicesL);
+K_LB = K(indicesL, indicesB);
+K_BL = K(indicesB, indicesL);
+K_BB = K(indicesB, indicesB);
+
+% --- extraire vecteurs F et U ---
+F_L = Fimp(indicesL);
+F_B = Fimp(indicesB);
+
+U_B = Uimp(indicesB);      % déplacements imposés (connus) aux DDL bloqués
+
+% --- second membre réduit pour les inconnues U_L ---
+F_reduit_L = F_L - K_LB * U_B;
+
+
+% Résolution U_L 
+% On contrôle le conditionnement de KLL, en 
+if rcond(K_LL) < 1e-12
+    warning('K_LL singulière, des appuis ont été mal définis : ');
+    retur;
+else
+    U_L = K_LL \ F_reduit_L;       
+end
+
+
+
+
+
+
+    
+
